@@ -6,11 +6,6 @@ import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import com.iispl.entity.SettlementBatch;
 import com.iispl.entity.Transaction;
@@ -32,22 +27,8 @@ public class SettlementService {
     public void processBatch(SettlementBatch batch) throws SQLException {
         batchRepo.save(batch);
 
-        ExecutorService executor = Executors.newFixedThreadPool(4);
-        try {
-            List<Future<Void>> futures = batch.getTransaction().stream()
-                    .map(txn -> executor.submit(new SaveTransactionTask(txn, batch.getBatchId())))
-                    .toList();
-
-            for (Future<Void> future : futures) {
-                future.get();
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new SQLException("Batch processing interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Error while saving transactions in parallel.", e.getCause());
-        } finally {
-            executor.shutdown();
+        for (Transaction txn : batch.getTransaction()) {
+            txnRepo.save(txn, batch.getBatchId());
         }
     }
 
@@ -122,22 +103,6 @@ public class SettlementService {
         System.out.println("--------------------------------------------------------------------------------");
         System.out.printf("%-12s %12d %16.2f %12d %16.2f %16.2f%n%n", "TOTAL",
                 total.receiveCount, total.receiveAmount, total.payCount, total.payAmount, total.netAmount());
-    }
-
-    private final class SaveTransactionTask implements Callable<Void> {
-        private final Transaction txn;
-        private final String batchId;
-
-        private SaveTransactionTask(Transaction txn, String batchId) {
-            this.txn = txn;
-            this.batchId = batchId;
-        }
-
-        @Override
-        public Void call() throws Exception {
-            txnRepo.save(txn, batchId);
-            return null;
-        }
     }
 
     private static final class ChannelSettlement {
