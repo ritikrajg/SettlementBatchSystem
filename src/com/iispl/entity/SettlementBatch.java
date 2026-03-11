@@ -3,7 +3,9 @@ package com.iispl.entity;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class SettlementBatch {
 
@@ -37,6 +39,7 @@ public class SettlementBatch {
         private final String batchId;
         private final LocalDate date;
         private final List<Transaction> transactions = new ArrayList<>();
+        private final Set<String> txnIds = new HashSet<>();
 
         private Builder(String batchId, LocalDate date) {
             this.batchId = batchId;
@@ -44,6 +47,9 @@ public class SettlementBatch {
         }
 
         public Builder add(Transaction txn) {
+            if (!txnIds.add(txn.getTxnId())) {
+                throw new IllegalArgumentException("Duplicate transaction ID in current batch: " + txn.getTxnId());
+            }
             transactions.add(txn);
             return this;
         }
