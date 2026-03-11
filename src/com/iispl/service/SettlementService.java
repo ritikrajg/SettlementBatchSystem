@@ -9,8 +9,10 @@ import java.util.Map;
 
 import com.iispl.entity.SettlementBatch;
 import com.iispl.entity.Transaction;
+import com.iispl.enums.Bank;
 import com.iispl.enums.Channel;
 import com.iispl.enums.DrCr;
+import com.iispl.enums.Status;
 import com.iispl.repository.SettlementBatchRepository;
 import com.iispl.repository.TransactionRepository;
 
@@ -26,8 +28,10 @@ public class SettlementService {
 
     public void processBatch(SettlementBatch batch) throws SQLException {
         batchRepo.save(batch);
-
         for (Transaction txn : batch.getTransaction()) {
+            if (txnRepo.existsByTxnId(txn.getTxnId())) {
+                throw new IllegalArgumentException("Duplicate txn id found: " + txn.getTxnId());
+            }
             txnRepo.save(txn, batch.getBatchId());
         }
     }
@@ -70,8 +74,10 @@ public class SettlementService {
 
         Map<Channel, ChannelSettlement> channelStats = new EnumMap<>(Channel.class);
         for (Transaction transaction : transactions) {
-            channelStats.computeIfAbsent(transaction.getChannel(), ignored -> new ChannelSettlement())
-                    .include(transaction);
+            if (transaction.getStatus() != Status.SUCCESS) {
+                continue;
+            }
+            channelStats.computeIfAbsent(transaction.getChannel(), ignored -> new ChannelSettlement()).include(transaction);
         }
 
         System.out.println("\nCLEARING HOUSE REPORTS");
@@ -105,6 +111,63 @@ public class SettlementService {
                 total.receiveCount, total.receiveAmount, total.payCount, total.payAmount, total.netAmount());
     }
 
+    public void printBankWiseSummaryReport() throws SQLException {
+        List<Transaction> transactions = txnRepo.findAll();
+        if (transactions.isEmpty()) {
+            System.out.println("❌ No transactions available in database.\n");
+            return;
+        }
+
+        System.out.println("\nBANK-WISE SUMMARY REPORT");
+        System.out.printf("%-10s %12s %16s %12s %16s %16s%n", "Bank", "Items Deliv.", "Amt To Recv",
+                "Items Recv.", "Amt To Pay", "Net");
+        System.out.println("--------------------------------------------------------------------------------");
+
+        for (Bank bank : Bank.values()) {
+            int delivered = 0;
+            int received = 0;
+            BigDecimal amtToRecv = BigDecimal.ZERO;
+            BigDecimal amtToPay = BigDecimal.ZERO;
+
+            for (Transaction txn : transactions) {
+                if (txn.getStatus() != Status.SUCCESS) {
+                    continue;
+                }
+                if (txn.getReceiverBank() == bank) {
+                    delivered++;
+                    amtToRecv = amtToRecv.add(txn.getAmount());
+                }
+                if (txn.getSenderBank() == bank) {
+                    received++;
+                    amtToPay = amtToPay.add(txn.getAmount());
+                }
+            }
+
+            if (delivered == 0 && received == 0) {
+                continue;
+            }
+
+            BigDecimal net = amtToRecv.subtract(amtToPay);
+            System.out.printf("%-10s %12d %16.2f %12d %16.2f %16.2f%n",
+                    bank, delivered, amtToRecv, received, amtToPay, net);
+        }
+        System.out.println();
+    }
+
+    public void printAllTransactions() throws SQLException {
+        List<Transaction> transactions = txnRepo.findAll();
+        if (transactions.isEmpty()) {
+            System.out.println("❌ No transactions available in database.\n");
+            return;
+        }
+
+        System.out.println("\nALL TRANSACTIONS");
+        for (Transaction transaction : transactions) {
+            System.out.println(transaction);
+        }
+        System.out.println();
+    }
+
     private static final class ChannelSettlement {
         private int receiveCount;
         private int payCount;
@@ -117,7 +180,6 @@ public class SettlementService {
                 receiveAmount = receiveAmount.add(transaction.getAmount());
                 return;
             }
-
             payCount++;
             payAmount = payAmount.add(transaction.getAmount());
         }
