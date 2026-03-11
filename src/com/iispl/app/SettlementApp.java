@@ -3,6 +3,7 @@ package com.iispl.app;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.Scanner;
 
 import com.iispl.entity.SettlementBatch;
@@ -31,8 +32,7 @@ public class SettlementApp {
             System.out.println("6. Exit");
             System.out.print("Select an option: ");
 
-            int choice = scanner.nextInt();
-            scanner.nextLine();
+            int choice = readMenuChoice(scanner);
 
             try {
                 switch (choice) {
@@ -50,8 +50,7 @@ public class SettlementApp {
                         }
                         System.out.print("Enter Txn ID (e.g., TXN1001): ");
                         String txnId = scanner.nextLine();
-                        System.out.print("Enter Amount: ");
-                        BigDecimal amount = new BigDecimal(scanner.nextLine());
+                        BigDecimal amount = readAmount(scanner);
 
                         Channel channel = readChannel(scanner);
                         DrCr drCr = readDrCr(scanner);
@@ -102,21 +101,60 @@ public class SettlementApp {
         }
     }
 
+    private static int readMenuChoice(Scanner scanner) {
+        String rawInput = scanner.nextLine().trim();
+        try {
+            return Integer.parseInt(rawInput);
+        } catch (NumberFormatException ex) {
+            return -1;
+        }
+    }
+
+    private static BigDecimal readAmount(Scanner scanner) {
+        while (true) {
+            System.out.print("Enter Amount: ");
+            String rawValue = scanner.nextLine().trim();
+            try {
+                return new BigDecimal(rawValue);
+            } catch (NumberFormatException ex) {
+                System.out.println("❌ Invalid amount. Please enter a valid numeric amount.\n");
+            }
+        }
+    }
+
     private static Channel readChannel(Scanner scanner) {
-        System.out.print("Enter Channel (UPI/ATM/POS/NETBANKING): ");
-        String value = scanner.nextLine().trim().toUpperCase();
-        return Channel.valueOf(value);
+        while (true) {
+            System.out.print("Enter Channel (UPI/ATM/POS/NETBANKING): ");
+            String value = scanner.nextLine().trim().toUpperCase();
+            try {
+                return Channel.valueOf(value);
+            } catch (IllegalArgumentException ex) {
+                System.out.println("❌ Invalid channel. Allowed values: " + Arrays.toString(Channel.values()) + "\n");
+            }
+        }
     }
 
     private static DrCr readDrCr(Scanner scanner) {
-        System.out.print("Enter Entry Type (DR/CR): ");
-        String value = scanner.nextLine().trim().toUpperCase();
-        return DrCr.valueOf(value);
+        while (true) {
+            System.out.print("Enter Entry Type (DR/CR): ");
+            String value = scanner.nextLine().trim().toUpperCase();
+            try {
+                return DrCr.valueOf(value);
+            } catch (IllegalArgumentException ex) {
+                System.out.println("❌ Invalid entry type. Allowed values: " + Arrays.toString(DrCr.values()) + "\n");
+            }
+        }
     }
 
     private static Status readStatus(Scanner scanner) {
-        System.out.print("Enter Status (SUCCESS/FAILED): ");
-        String value = scanner.nextLine().trim().toUpperCase();
-        return Status.valueOf(value);
+        while (true) {
+            System.out.print("Enter Status (SUCCESS/FAILED): ");
+            String value = scanner.nextLine().trim().toUpperCase();
+            try {
+                return Status.valueOf(value);
+            } catch (IllegalArgumentException ex) {
+                System.out.println("❌ Invalid status. Allowed values: " + Arrays.toString(Status.values()) + "\n");
+            }
+        }
     }
 }
