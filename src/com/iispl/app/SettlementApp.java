@@ -27,7 +27,8 @@ public class SettlementApp {
             System.out.println("2. Add Transaction to Current Batch");
             System.out.println("3. Submit Current Batch to Database");
             System.out.println("4. View Batch Summary from Database");
-            System.out.println("5. Exit");
+            System.out.println("5. View Clearing House Report (Like Settlement Register)");
+            System.out.println("6. Exit");
             System.out.print("Select an option: ");
 
             int choice = scanner.nextInt();
@@ -52,9 +53,13 @@ public class SettlementApp {
                         System.out.print("Enter Amount: ");
                         BigDecimal amount = new BigDecimal(scanner.nextLine());
 
+                        Channel channel = readChannel(scanner);
+                        DrCr drCr = readDrCr(scanner);
+                        Status status = readStatus(scanner);
+
                         Transaction txn = new Transaction(
-                                txnId, Channel.UPI, amount, Instant.now(),
-                                DrCr.DR, Status.SUCCESS);
+                                txnId, channel, amount, Instant.now(),
+                                drCr, status);
 
                         currentBuilder.add(txn);
                         System.out.println("✅ Transaction Added. Current Unsaved Count: " + currentBuilder.previewRecordCount() + "\n");
@@ -77,6 +82,12 @@ public class SettlementApp {
                         break;
 
                     case 5:
+                        System.out.print("Enter Batch ID to generate report: ");
+                        String reportBatchId = scanner.nextLine();
+                        service.printClearingHouseReport(reportBatchId);
+                        break;
+
+                    case 6:
                         System.out.println("Exiting system. Goodbye!");
                         scanner.close();
                         System.exit(0);
@@ -89,5 +100,23 @@ public class SettlementApp {
                 System.out.println("❌ Error: " + e.getMessage() + "\n");
             }
         }
+    }
+
+    private static Channel readChannel(Scanner scanner) {
+        System.out.print("Enter Channel (UPI/ATM/POS/NETBANKING): ");
+        String value = scanner.nextLine().trim().toUpperCase();
+        return Channel.valueOf(value);
+    }
+
+    private static DrCr readDrCr(Scanner scanner) {
+        System.out.print("Enter Entry Type (DR/CR): ");
+        String value = scanner.nextLine().trim().toUpperCase();
+        return DrCr.valueOf(value);
+    }
+
+    private static Status readStatus(Scanner scanner) {
+        System.out.print("Enter Status (SUCCESS/FAILED): ");
+        String value = scanner.nextLine().trim().toUpperCase();
+        return Status.valueOf(value);
     }
 }
