@@ -1,13 +1,17 @@
 package com.iispl.app;
 
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Set;
 
 import com.iispl.entity.SettlementBatch;
 import com.iispl.entity.Transaction;
@@ -83,6 +87,14 @@ public class SettlementApp {
                         break;
 
                     case 3:
+                        if (currentBuilder == null) {
+                            System.out.println("❌ Please initialize a batch first (Option 1).\n");
+                            break;
+                        }
+                        importTransactionsFromCsv(scanner, service, currentBuilder);
+                        break;
+
+                    case 4:
                         if (currentBuilder == null || currentBuilder.previewRecordCount() == 0) {
                             System.out.println("❌ No pending batch or empty batch to submit.\n");
                             break;
@@ -96,27 +108,27 @@ public class SettlementApp {
                         currentBuilder = null;
                         break;
 
-                    case 4:
+                    case 5:
                         System.out.print("Enter Batch ID to search: ");
                         String searchId = scanner.nextLine();
                         service.printBatchSummary(searchId);
                         break;
 
-                    case 5:
+                    case 6:
                         System.out.print("Enter Batch ID to generate report: ");
                         String reportBatchId = scanner.nextLine();
                         service.printClearingHouseReport(reportBatchId);
                         break;
 
-                    case 6:
+                    case 7:
                         service.printBankWiseSummaryReport();
                         break;
 
-                    case 7:
+                    case 8:
                         service.printAllTransactions();
                         break;
 
-                    case 8:
+                    case 9:
                         if (currentBuilder == null) {
                             System.out.println("ℹ️ No active unsaved batch.\n");
                             break;
@@ -124,15 +136,15 @@ public class SettlementApp {
                         service.printCurrentBatchPreview(currentBuilder);
                         break;
 
-                    case 9:
+                    case 10:
                         runAdvancedBatchViewMenu(scanner, service);
                         break;
 
-                    case 10:
+                    case 11:
                         runAdvancedTransactionViewMenu(scanner, service);
                         break;
 
-                    case 11:
+                    case 12:
                         if (currentBuilder != null && currentBuilder.previewRecordCount() > 0
                                 && !confirm(scanner, "You have unsaved transactions. Exit anyway")) {
                             System.out.println();
@@ -177,15 +189,16 @@ public class SettlementApp {
         System.out.println("🏦 Banking Settlement System");
         System.out.println("1. Initialize New Settlement Batch");
         System.out.println("2. Add Transaction to Current Batch");
-        System.out.println("3. Submit Current Batch to Database");
-        System.out.println("4. View Batch Summary from Database");
-        System.out.println("5. View Clearing House Report (Batch)");
-        System.out.println("6. View Bank-wise Settlement Summary");
-        System.out.println("7. View All Transactions");
-        System.out.println("8. View Current Unsaved Batch");
-        System.out.println("9. View Batches (Advanced)");
-        System.out.println("10. View Transactions (Advanced Filters)");
-        System.out.println("11. Exit");
+        System.out.println("3. Import Transactions from CSV to Current Batch");
+        System.out.println("4. Submit Current Batch to Database");
+        System.out.println("5. View Batch Summary from Database");
+        System.out.println("6. View Clearing House Report (Batch)");
+        System.out.println("7. View Bank-wise Settlement Summary");
+        System.out.println("8. View All Transactions");
+        System.out.println("9. View Current Unsaved Batch");
+        System.out.println("10. View Batches (Advanced)");
+        System.out.println("11. View Transactions (Advanced Filters)");
+        System.out.println("12. Exit");
         System.out.print("Select an option: ");
     }
 
@@ -359,5 +372,112 @@ public class SettlementApp {
         System.out.print(message + "? (y/n): ");
         String answer = scanner.nextLine().trim().toLowerCase();
         return "y".equals(answer) || "yes".equals(answer);
+    }
+
+    private static void importTransactionsFromCsv(
+            Scanner scanner,
+            SettlementService service,
+            SettlementBatch.Builder currentBuilder) throws Exception {
+        System.out.print("Enter CSV file path: ");
+        String csvPathInput = scanner.nextLine().trim();
+        if (csvPathInput.isBlank()) {
+            throw new IllegalArgumentException("CSV file path cannot be blank.");
+        }
+
+        Path csvPath = Path.of(csvPathInput);
+        if (!Files.exists(csvPath) || !Files.isRegularFile(csvPath)) {
+            throw new IllegalArgumentException("CSV file not found: " + csvPath);
+        }
+
+        List<String> rows = Files.readAllLines(csvPath);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("CSV file is empty.");
+        }
+
+        Set<String> existingTxnIds = new HashSet<>();
+        for (Transaction transaction : currentBuilder.previewTransactions()) {
+            existingTxnIds.add(transaction.getTxnId().toUpperCase());
+        }
+
+        int importedCount = 0;
+        for (int i = 0; i < rows.size(); i++) {
+            String row = rows.get(i).trim();
+            if (row.isBlank()) {
+                continue;
+            }
+
+            if (i == 0 && row.toLowerCase().startsWith("txn_id,")) {
+                continue;
+            }
+
+            String[] fields = row.split(",", -1);
+            if (fields.length < 7) {
+                throw new IllegalArgumentException("Invalid CSV format at line " + (i + 1)
+                        + ". Expected columns: txn_id,sender_bank,receiver_bank,channel,amount,dr_cr,status");
+            }
+
+            String txnId = fields[0].trim();
+            if (txnId.isBlank()) {
+                throw new IllegalArgumentException("Transaction ID is blank at line " + (i + 1));
+            }
+            String normalizedTxnId = txnId.toUpperCase();
+            if (existingTxnIds.contains(normalizedTxnId)) {
+                throw new IllegalArgumentException("Duplicate txn id in current batch/CSV at line " + (i + 1)
+                        + ": " + txnId);
+            }
+            if (service.isTransactionAlreadyPersisted(txnId)) {
+                throw new IllegalArgumentException("Transaction ID already exists in database at line " + (i + 1)
+                        + ": " + txnId);
+            }
+
+            Bank senderBank;
+            Bank receiverBank;
+            Channel channel;
+            DrCr drCr;
+            Status status;
+            try {
+                senderBank = Bank.valueOf(fields[1].trim().toUpperCase());
+                receiverBank = Bank.valueOf(fields[2].trim().toUpperCase());
+                channel = Channel.valueOf(fields[3].trim().toUpperCase());
+                drCr = DrCr.valueOf(fields[5].trim().toUpperCase());
+                status = Status.valueOf(fields[6].trim().toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("Invalid enum value at line " + (i + 1)
+                        + ". Allowed banks=" + Arrays.toString(Bank.values())
+                        + ", channels=" + Arrays.toString(Channel.values())
+                        + ", dr_cr=" + Arrays.toString(DrCr.values())
+                        + ", status=" + Arrays.toString(Status.values()));
+            }
+
+            if (senderBank == receiverBank) {
+                throw new IllegalArgumentException("Sender and receiver bank cannot be same at line " + (i + 1));
+            }
+
+            BigDecimal amount;
+            try {
+                amount = new BigDecimal(fields[4].trim());
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("Invalid amount at line " + (i + 1));
+            }
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Amount must be greater than zero at line " + (i + 1));
+            }
+
+            Transaction txn = new Transaction(
+                    txnId,
+                    senderBank,
+                    receiverBank,
+                    channel,
+                    amount,
+                    Instant.now(),
+                    drCr,
+                    status);
+            currentBuilder.add(txn);
+            existingTxnIds.add(normalizedTxnId);
+            importedCount++;
+        }
+
+        System.out.println("✅ Imported " + importedCount + " transaction(s) from CSV. Current Unsaved Count: "
+                + currentBuilder.previewRecordCount() + "\n");
     }
 }
