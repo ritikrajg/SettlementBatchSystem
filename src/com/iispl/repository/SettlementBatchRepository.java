@@ -12,6 +12,9 @@ import java.util.Map;
 import com.iispl.connectionpool.ConnectionPool;
 import com.iispl.entity.SettlementBatch;
 
+/**
+ * Repository for CRUD-like access to the {@code settlement_batch} table.
+ */
 public class SettlementBatchRepository {
 
     public void save(SettlementBatch batch) throws SQLException {

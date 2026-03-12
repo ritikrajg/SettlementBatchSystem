@@ -13,12 +13,16 @@ import java.util.logging.Logger;
 
 import javax.sql.DataSource;
 
+/**
+ * Central datasource holder used by repositories.
+ *
+ * The datasource is initialized once from {@code resources/db.properties}.
+ */
 public class ConnectionPool {
     private static final DataSource dataSource;
 
     static {
-        try {
-            InputStream inputStream = new FileInputStream("resources/db.properties");
+        try (InputStream inputStream = new FileInputStream("resources/db.properties")) {
             Properties properties = new Properties();
             properties.load(inputStream);
 
