@@ -5,6 +5,8 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -20,6 +22,8 @@ import com.iispl.repository.SettlementBatchRepository;
 import com.iispl.repository.TransactionRepository;
 
 public class SettlementService {
+
+    private static final DateTimeFormatter DISPLAY_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final SettlementBatchRepository batchRepo;
     private final TransactionRepository txnRepo;
@@ -204,17 +208,116 @@ public class SettlementService {
     }
 
     public void printAllTransactions() throws SQLException {
-        List<Transaction> transactions = txnRepo.findAll();
-        if (transactions.isEmpty()) {
-            System.out.println("❌ No transactions available in database.\n");
+        printTransactionList("ALL TRANSACTIONS", txnRepo.findAll());
+    }
+
+    public void printAllBatches() throws SQLException {
+        Map<String, LocalDate> batches = batchRepo.findAllBatchDates();
+        if (batches.isEmpty()) {
+            System.out.println("❌ No batches available in database.\n");
             return;
         }
 
-        System.out.println("\nALL TRANSACTIONS");
-        for (Transaction transaction : transactions) {
-            System.out.println(transaction);
+        printSectionTitle("ALL BATCHES", batches.size());
+        System.out.printf("%-4s %-16s %-12s%n", "#", "Batch ID", "Batch Date");
+        System.out.println("-----------------------------------");
+        int rowNum = 1;
+        for (Map.Entry<String, LocalDate> batch : batches.entrySet()) {
+            System.out.printf("%-4d %-16s %-12s%n", rowNum++, batch.getKey(), batch.getValue());
         }
         System.out.println();
+    }
+
+    public void printBatchesByDate(LocalDate batchDate) throws SQLException {
+        Map<String, LocalDate> batches = batchRepo.findBatchDatesByDate(batchDate);
+        if (batches.isEmpty()) {
+            System.out.println("❌ No batches found for date: " + batchDate + "\n");
+            return;
+        }
+
+        printSectionTitle("BATCHES ON DATE: " + batchDate, batches.size());
+        System.out.printf("%-4s %-16s %-12s%n", "#", "Batch ID", "Batch Date");
+        System.out.println("-----------------------------------");
+        int rowNum = 1;
+        for (Map.Entry<String, LocalDate> batch : batches.entrySet()) {
+            System.out.printf("%-4d %-16s %-12s%n", rowNum++, batch.getKey(), batch.getValue());
+        }
+        System.out.println();
+    }
+
+    public void printTransactionsByTxnId(String txnId) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR ID: " + txnId, txnRepo.findByTxnId(txnId));
+    }
+
+    public void printTransactionsByDate(LocalDate txnDate) throws SQLException {
+        printTransactionList("TRANSACTIONS ON DATE: " + txnDate, txnRepo.findByTxnDate(txnDate));
+    }
+
+    public void printTransactionsByBank(Bank bank) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR BANK: " + bank, txnRepo.findByBank(bank));
+    }
+
+    public void printTransactionsByChannel(Channel channel) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR CHANNEL: " + channel, txnRepo.findByChannel(channel));
+    }
+
+    public void printTransactionsByDrCr(DrCr drCr) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR DR/CR: " + drCr, txnRepo.findByDrCr(drCr));
+    }
+
+    public void printTransactionsByStatus(Status status) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR STATUS: " + status, txnRepo.findByStatus(status));
+    }
+
+    public void printTransactionsByBankAndChannel(Bank bank, Channel channel) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR BANK " + bank + " AND CHANNEL " + channel,
+                txnRepo.findByBankAndChannel(bank, channel));
+    }
+
+    public void printTransactionsByBankAndStatus(Bank bank, Status status) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR BANK " + bank + " AND STATUS " + status,
+                txnRepo.findByBankAndStatus(bank, status));
+    }
+
+    public void printTransactionsByBankChannelAndStatus(Bank bank, Channel channel, Status status) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR BANK " + bank + ", CHANNEL " + channel + ", STATUS " + status,
+                txnRepo.findByBankAndChannelAndStatus(bank, channel, status));
+    }
+
+    private void printTransactionList(String title, List<Transaction> transactions) {
+        if (transactions.isEmpty()) {
+            System.out.println("❌ No transactions found.\n");
+            return;
+        }
+
+        printSectionTitle(title, transactions.size());
+        System.out.printf("%-4s %-12s %-6s %-6s %-10s %12s %-6s %-10s %-19s%n",
+                "#", "Txn ID", "From", "To", "Channel", "Amount", "DR/CR", "Status", "Txn Time");
+        System.out.println("------------------------------------------------------------------------------------------------");
+
+        int rowNum = 1;
+        for (Transaction transaction : transactions) {
+            String displayTime = DISPLAY_TIME_FORMAT.format(transaction.getTxnTime().atZone(ZoneId.systemDefault()));
+            System.out.printf("%-4d %-12s %-6s %-6s %-10s %12.2f %-6s %-10s %-19s%n",
+                    rowNum++,
+                    transaction.getTxnId(),
+                    transaction.getSenderBank(),
+                    transaction.getReceiverBank(),
+                    transaction.getChannel(),
+                    transaction.getAmount(),
+                    transaction.getDrCr(),
+                    transaction.getStatus(),
+                    displayTime);
+        }
+        System.out.println();
+    }
+
+    private void printSectionTitle(String title, int totalRecords) {
+        String divider = "=".repeat(96);
+        System.out.println("\n" + divider);
+        System.out.println(title);
+        System.out.println("Total Records: " + totalRecords);
+        System.out.println(divider);
     }
 
     private void assertTableExists(DatabaseMetaData metaData, String tableName) throws SQLException {

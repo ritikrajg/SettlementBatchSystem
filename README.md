@@ -72,7 +72,9 @@ Key flow:
   6. View bank-wise settlement summary.
   7. View all transactions.
   8. View current unsaved batch.
-  9. Exit.
+  9. View advanced batch filters.
+  10. View advanced transaction filters.
+  11. Exit.
 
 Helper methods:
 
@@ -190,6 +192,9 @@ From menu options:
 
 - **Batch Summary Report** (count + total amount for one batch)
 - **Clearing House Report** (channel-wise receive/pay + net)
+- **All Batches** and **Batches Date-wise**
+- **Transaction search** by transaction ID, date, bank, channel, DR/CR, status
+- **Combined transaction filters** by bank+channel, bank+status, and bank+channel+status
 
 ---
 
