@@ -167,7 +167,7 @@ Expected tables:
 - `settlement_batch(batch_id, batch_date)`
 - `transactions(txn_id, channel, amount, txn_time, dr_cr, status, batch_id)`
 
-> Create these tables before running (schema file is not present in this repo).
+SQL script is available at `sql/schema.sql`. Run it once before starting the app.
 
 ---
 
@@ -215,6 +215,12 @@ Compile:
 
 ```bash
 javac -d out $(find src -name '*.java')
+```
+
+Initialize schema:
+
+```bash
+psql -U <username> -d <database_name> -f sql/schema.sql
 ```
 
 Run:
