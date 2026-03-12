@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Scanner;
 
@@ -30,18 +31,7 @@ public class SettlementApp {
         SettlementBatch.Builder currentBuilder = null;
 
         while (true) {
-            System.out.println("🏦 Banking Settlement System");
-            System.out.println("1. Initialize New Settlement Batch");
-            System.out.println("2. Add Transaction to Current Batch");
-            System.out.println("3. Submit Current Batch to Database");
-            System.out.println("4. View Batch Summary from Database");
-            System.out.println("5. View Clearing House Report (Batch)");
-            System.out.println("6. View Bank-wise Settlement Summary");
-            System.out.println("7. View All Transactions");
-            System.out.println("8. View Current Unsaved Batch");
-            System.out.println("9. Exit");
-            System.out.print("Select an option: ");
-
+            printMainMenu();
             int choice = readMenuChoice(scanner);
 
             try {
@@ -141,6 +131,14 @@ public class SettlementApp {
                         break;
 
                     case 9:
+                        runAdvancedBatchViewMenu(scanner, service);
+                        break;
+
+                    case 10:
+                        runAdvancedTransactionViewMenu(scanner, service);
+                        break;
+
+                    case 11:
                         if (currentBuilder != null && currentBuilder.previewRecordCount() > 0
                                 && !confirm(scanner, "You have unsaved transactions. Exit anyway")) {
                             System.out.println();
@@ -181,12 +179,128 @@ public class SettlementApp {
         return false;
     }
 
+    private static void printMainMenu() {
+        System.out.println("🏦 Banking Settlement System");
+        System.out.println("1. Initialize New Settlement Batch");
+        System.out.println("2. Add Transaction to Current Batch");
+        System.out.println("3. Submit Current Batch to Database");
+        System.out.println("4. View Batch Summary from Database");
+        System.out.println("5. View Clearing House Report (Batch)");
+        System.out.println("6. View Bank-wise Settlement Summary");
+        System.out.println("7. View All Transactions");
+        System.out.println("8. View Current Unsaved Batch");
+        System.out.println("9. View Batches (Advanced)");
+        System.out.println("10. View Transactions (Advanced Filters)");
+        System.out.println("11. Exit");
+        System.out.print("Select an option: ");
+    }
+
+    private static void runAdvancedBatchViewMenu(Scanner scanner, SettlementService service) throws SQLException {
+        System.out.println("\n📦 Advanced Batch Views");
+        System.out.println("1. View all batches");
+        System.out.println("2. View batches date-wise");
+        System.out.println("3. Back to main menu");
+        System.out.print("Select an option: ");
+
+        int choice = readMenuChoice(scanner);
+        switch (choice) {
+            case 1:
+                service.printAllBatches();
+                break;
+            case 2:
+                LocalDate date = readDate(scanner, "Enter batch date (YYYY-MM-DD): ");
+                service.printBatchesByDate(date);
+                break;
+            case 3:
+                System.out.println();
+                break;
+            default:
+                System.out.println("Invalid option. Try again.\n");
+        }
+    }
+
+    private static void runAdvancedTransactionViewMenu(Scanner scanner, SettlementService service) throws SQLException {
+        System.out.println("\n🔎 Advanced Transaction Views");
+        System.out.println("1. View transaction by transaction ID");
+        System.out.println("2. View transactions date-wise");
+        System.out.println("3. View transactions bank-wise");
+        System.out.println("4. View transactions by channel");
+        System.out.println("5. View transactions by DR/CR");
+        System.out.println("6. View transactions by status");
+        System.out.println("7. View transactions by bank and channel");
+        System.out.println("8. View transactions by bank and status");
+        System.out.println("9. View transactions by bank, channel and status");
+        System.out.println("10. Back to main menu");
+        System.out.print("Select an option: ");
+
+        int choice = readMenuChoice(scanner);
+        switch (choice) {
+            case 1:
+                System.out.print("Enter transaction ID: ");
+                String txnId = scanner.nextLine().trim();
+                if (txnId.isBlank()) {
+                    throw new IllegalArgumentException("Transaction ID cannot be blank.");
+                }
+                service.printTransactionsByTxnId(txnId);
+                break;
+            case 2:
+                LocalDate date = readDate(scanner, "Enter transaction date (YYYY-MM-DD): ");
+                service.printTransactionsByDate(date);
+                break;
+            case 3:
+                service.printTransactionsByBank(readBank(scanner, "Enter Bank"));
+                break;
+            case 4:
+                service.printTransactionsByChannel(readChannel(scanner));
+                break;
+            case 5:
+                service.printTransactionsByDrCr(readDrCr(scanner));
+                break;
+            case 6:
+                service.printTransactionsByStatus(readStatus(scanner));
+                break;
+            case 7:
+                Bank bankForChannel = readBank(scanner, "Enter Bank");
+                Channel channel = readChannel(scanner);
+                service.printTransactionsByBankAndChannel(bankForChannel, channel);
+                break;
+            case 8:
+                Bank bankForStatus = readBank(scanner, "Enter Bank");
+                Status status = readStatus(scanner);
+                service.printTransactionsByBankAndStatus(bankForStatus, status);
+                break;
+            case 9:
+                Bank bank = readBank(scanner, "Enter Bank");
+                Channel combinedChannel = readChannel(scanner);
+                Status combinedStatus = readStatus(scanner);
+                service.printTransactionsByBankChannelAndStatus(bank, combinedChannel, combinedStatus);
+                break;
+            case 10:
+                System.out.println();
+                break;
+            default:
+                System.out.println("Invalid option. Try again.\n");
+        }
+    }
+
     private static int readMenuChoice(Scanner scanner) {
         String rawInput = scanner.nextLine().trim();
         try {
             return Integer.parseInt(rawInput);
         } catch (NumberFormatException ex) {
             return -1;
+        }
+    }
+
+    private static LocalDate readDate(Scanner scanner, String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String rawValue = scanner.nextLine().trim();
+            try {
+                return LocalDate.parse(rawValue);
+            } catch (DateTimeParseException ex) {
+                System.out.println("❌ Invalid date. Please use YYYY-MM-DD format.\n");
+            }
         }
     }
 

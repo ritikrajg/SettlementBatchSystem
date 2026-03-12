@@ -6,6 +6,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import com.iispl.connectionpool.ConnectionPool;
 import com.iispl.entity.SettlementBatch;
@@ -52,5 +54,31 @@ public class SettlementBatchRepository {
                 return null;
             }
         }
+    }
+
+    public Map<String, LocalDate> findAllBatchDates() throws SQLException {
+        String sql = "select batch_id, batch_date from settlement_batch order by batch_date desc, batch_id";
+        return queryBatchDates(sql, null);
+    }
+
+    public Map<String, LocalDate> findBatchDatesByDate(LocalDate batchDate) throws SQLException {
+        String sql = "select batch_id, batch_date from settlement_batch where batch_date = ? order by batch_id";
+        return queryBatchDates(sql, batchDate);
+    }
+
+    private Map<String, LocalDate> queryBatchDates(String sql, LocalDate batchDate) throws SQLException {
+        Map<String, LocalDate> batchDates = new LinkedHashMap<>();
+        try (Connection conn = ConnectionPool.getDataSource().getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (batchDate != null) {
+                ps.setDate(1, Date.valueOf(batchDate));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    batchDates.put(rs.getString("batch_id"), rs.getDate("batch_date").toLocalDate());
+                }
+            }
+        }
+        return batchDates;
     }
 }

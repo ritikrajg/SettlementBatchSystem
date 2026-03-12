@@ -5,6 +5,11 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -71,6 +76,125 @@ public class TransactionRepository {
         }
     }
 
+
+    public List<Transaction> findByTxnId(String txnId) throws SQLException {
+        String sql = "select txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status "
+                + "from transactions where txn_id = ?";
+
+        try (Connection con = ConnectionPool.getDataSource().getConnection();
+                PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, txnId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return mapTransactions(rs);
+            }
+        }
+    }
+
+    public List<Transaction> findByTxnDate(LocalDate txnDate) throws SQLException {
+        Instant startOfDay = txnDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        Instant nextDayStart = startOfDay.plus(1, ChronoUnit.DAYS);
+
+        String sql = "select txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status "
+                + "from transactions where txn_time >= ? and txn_time < ? order by txn_time desc, txn_id";
+
+        try (Connection con = ConnectionPool.getDataSource().getConnection();
+                PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setTimestamp(1, Timestamp.from(startOfDay));
+            ps.setTimestamp(2, Timestamp.from(nextDayStart));
+            try (ResultSet rs = ps.executeQuery()) {
+                return mapTransactions(rs);
+            }
+        }
+    }
+
+    public List<Transaction> findByChannel(Channel channel) throws SQLException {
+        return findBySingleFilter("channel", channel.name());
+    }
+
+    public List<Transaction> findByDrCr(DrCr drCr) throws SQLException {
+        return findBySingleFilter("dr_cr", drCr.name());
+    }
+
+    public List<Transaction> findByStatus(Status status) throws SQLException {
+        return findBySingleFilter("status", status.name());
+    }
+
+    public List<Transaction> findByBank(Bank bank) throws SQLException {
+        String sql = "select txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status "
+                + "from transactions where sender_bank = ? or receiver_bank = ? order by txn_time desc, txn_id";
+
+        try (Connection con = ConnectionPool.getDataSource().getConnection();
+                PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, bank.name());
+            ps.setString(2, bank.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                return mapTransactions(rs);
+            }
+        }
+    }
+
+    public List<Transaction> findByBankAndChannel(Bank bank, Channel channel) throws SQLException {
+        String sql = "select txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status "
+                + "from transactions where (sender_bank = ? or receiver_bank = ?) and channel = ? "
+                + "order by txn_time desc, txn_id";
+
+        try (Connection con = ConnectionPool.getDataSource().getConnection();
+                PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, bank.name());
+            ps.setString(2, bank.name());
+            ps.setString(3, channel.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                return mapTransactions(rs);
+            }
+        }
+    }
+
+    public List<Transaction> findByBankAndStatus(Bank bank, Status status) throws SQLException {
+        String sql = "select txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status "
+                + "from transactions where (sender_bank = ? or receiver_bank = ?) and status = ? "
+                + "order by txn_time desc, txn_id";
+
+        try (Connection con = ConnectionPool.getDataSource().getConnection();
+                PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, bank.name());
+            ps.setString(2, bank.name());
+            ps.setString(3, status.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                return mapTransactions(rs);
+            }
+        }
+    }
+
+    public List<Transaction> findByBankAndChannelAndStatus(Bank bank, Channel channel, Status status)
+            throws SQLException {
+        String sql = "select txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status "
+                + "from transactions where (sender_bank = ? or receiver_bank = ?) and channel = ? and status = ? "
+                + "order by txn_time desc, txn_id";
+
+        try (Connection con = ConnectionPool.getDataSource().getConnection();
+                PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, bank.name());
+            ps.setString(2, bank.name());
+            ps.setString(3, channel.name());
+            ps.setString(4, status.name());
+            try (ResultSet rs = ps.executeQuery()) {
+                return mapTransactions(rs);
+            }
+        }
+    }
+
+    private List<Transaction> findBySingleFilter(String columnName, String value) throws SQLException {
+        String sql = "select txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status "
+                + "from transactions where " + columnName + " = ? order by txn_time desc, txn_id";
+
+        try (Connection con = ConnectionPool.getDataSource().getConnection();
+                PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, value);
+            try (ResultSet rs = ps.executeQuery()) {
+                return mapTransactions(rs);
+            }
+        }
+    }
     public List<Transaction> findAll() throws SQLException {
         String sql = "select txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status from transactions";
         try (Connection con = ConnectionPool.getDataSource().getConnection();
