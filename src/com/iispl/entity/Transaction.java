@@ -8,6 +8,9 @@ import com.iispl.enums.Channel;
 import com.iispl.enums.DrCr;
 import com.iispl.enums.Status;
 
+/**
+ * Immutable transaction entity representing one settlement instruction.
+ */
 public final class Transaction {
 
     private final String txnId;

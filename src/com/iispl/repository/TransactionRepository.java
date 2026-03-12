@@ -20,6 +20,9 @@ import com.iispl.enums.Channel;
 import com.iispl.enums.DrCr;
 import com.iispl.enums.Status;
 
+/**
+ * Repository for reading and writing transaction rows.
+ */
 public class TransactionRepository {
 
     public void save(Transaction txn, String batchId) throws SQLException {
@@ -28,6 +31,7 @@ public class TransactionRepository {
         }
     }
 
+    /** Inserts one transaction row using the provided DB connection. */
     public void save(Connection con, Transaction txn, String batchId) throws SQLException {
         String sql = "insert into transactions(txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status, batch_id) "
                 + "values (?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -220,6 +224,7 @@ public class TransactionRepository {
         return BigDecimal.ZERO;
     }
 
+    /** Maps JDBC result rows into immutable Transaction entities. */
     private List<Transaction> mapTransactions(ResultSet rs) throws SQLException {
         List<Transaction> transactions = new ArrayList<>();
         while (rs.next()) {

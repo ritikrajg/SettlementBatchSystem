@@ -10,8 +10,9 @@ It is a simple CLI workflow for settlement operations:
 
 1. Initialize a batch (ID is auto-generated and unique).
 2. Add transactions to the current batch.
-3. Submit the batch to the database.
-4. Generate batch summary and clearing-house style reports from persisted data.
+3. Import transactions from CSV files into the current batch (optional).
+4. Submit the batch to the database.
+5. Generate batch summary and clearing-house style reports from persisted data.
 
 The architecture follows a clean layered split:
 
@@ -66,15 +67,16 @@ Key flow:
 - Displays menu:
   1. Initialize batch (auto ID).
   2. Add transaction.
-  3. Submit batch.
-  4. View batch summary.
-  5. View clearing house report.
-  6. View bank-wise settlement summary.
-  7. View all transactions.
-  8. View current unsaved batch.
-  9. View advanced batch filters.
-  10. View advanced transaction filters.
-  11. Exit.
+  3. Import transactions from CSV into current batch.
+  4. Submit batch.
+  5. View batch summary.
+  6. View clearing house report.
+  7. View bank-wise settlement summary.
+  8. View all transactions.
+  9. View current unsaved batch.
+  10. View advanced batch filters.
+  11. View advanced transaction filters.
+  12. Exit.
 
 Helper methods:
 
@@ -233,3 +235,28 @@ Run:
 ```bash
 java -cp out com.iispl.app.SettlementApp
 ```
+
+---
+
+## CSV Import Format
+
+You can import transactions into the active unsaved batch using menu option **3**.
+
+Expected columns (header optional):
+
+```
+txn_id,sender_bank,receiver_bank,channel,amount,dr_cr,status
+```
+
+Example:
+
+```
+TXN9001,SBI,HDFC,UPI,2500.50,DR,SUCCESS
+TXN9002,ICICI,AXIS,NETBANKING,1000,CR,PENDING
+```
+
+Validation checks include:
+- transaction ID must be non-empty and unique (DB + current batch + CSV file)
+- sender and receiver banks must be different
+- amount must be a positive number
+- enum values must be valid (`Bank`, `Channel`, `DrCr`, `Status`)
