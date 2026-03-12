@@ -410,6 +410,7 @@ public class SettlementApp {
         // Parse and validate all rows first, then add to the builder in one go.
         // This prevents partial imports when a later row is invalid.
         List<Transaction> parsedTransactions = new java.util.ArrayList<>();
+        int importedCount = 0;
         for (int i = 0; i < rows.size(); i++) {
             String row = rows.get(i).trim();
             if (row.isBlank()) {
@@ -494,6 +495,12 @@ public class SettlementApp {
         }
 
         System.out.println("✅ Imported " + parsedTransactions.size() + " transaction(s) from CSV. Current Unsaved Count: "
+            currentBuilder.add(txn);
+            existingTxnIds.add(normalizedTxnId);
+            importedCount++;
+        }
+
+        System.out.println("✅ Imported " + importedCount + " transaction(s) from CSV. Current Unsaved Count: "
                 + currentBuilder.previewRecordCount() + "\n");
     }
 }
