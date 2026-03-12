@@ -58,6 +58,10 @@ public class SettlementBatch {
             return transactions.size();
         }
 
+        public List<Transaction> previewTransactions() {
+            return Collections.unmodifiableList(new ArrayList<>(transactions));
+        }
+
         public SettlementBatch build() {
             return new SettlementBatch(batchId, date, transactions);
         }

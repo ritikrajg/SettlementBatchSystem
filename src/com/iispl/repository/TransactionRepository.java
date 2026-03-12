@@ -18,12 +18,16 @@ import com.iispl.enums.Status;
 public class TransactionRepository {
 
     public void save(Transaction txn, String batchId) throws SQLException {
+        try (Connection con = ConnectionPool.getDataSource().getConnection()) {
+            save(con, txn, batchId);
+        }
+    }
+
+    public void save(Connection con, Transaction txn, String batchId) throws SQLException {
         String sql = "insert into transactions(txn_id, sender_bank, receiver_bank, channel, amount, txn_time, dr_cr, status, batch_id) "
                 + "values (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection con = ConnectionPool.getDataSource().getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
-
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, txn.getTxnId());
             ps.setString(2, txn.getSenderBank().name());
             ps.setString(3, txn.getReceiverBank().name());
@@ -39,9 +43,14 @@ public class TransactionRepository {
     }
 
     public boolean existsByTxnId(String txnId) throws SQLException {
+        try (Connection con = ConnectionPool.getDataSource().getConnection()) {
+            return existsByTxnId(con, txnId);
+        }
+    }
+
+    public boolean existsByTxnId(Connection con, String txnId) throws SQLException {
         String sql = "select 1 from transactions where txn_id = ?";
-        try (Connection con = ConnectionPool.getDataSource().getConnection();
-                PreparedStatement ps = con.prepareStatement(sql)) {
+        try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, txnId);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();

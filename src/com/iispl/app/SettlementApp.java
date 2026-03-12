@@ -1,6 +1,7 @@
 package com.iispl.app;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -21,6 +22,11 @@ public class SettlementApp {
         Scanner scanner = new Scanner(System.in);
         SettlementService service = new SettlementService(new SettlementBatchRepository(), new TransactionRepository());
 
+        if (!runStartupChecks(service)) {
+            scanner.close();
+            return;
+        }
+
         SettlementBatch.Builder currentBuilder = null;
 
         while (true) {
@@ -32,7 +38,8 @@ public class SettlementApp {
             System.out.println("5. View Clearing House Report (Batch)");
             System.out.println("6. View Bank-wise Settlement Summary");
             System.out.println("7. View All Transactions");
-            System.out.println("8. Exit");
+            System.out.println("8. View Current Unsaved Batch");
+            System.out.println("9. Exit");
             System.out.print("Select an option: ");
 
             int choice = readMenuChoice(scanner);
@@ -41,7 +48,13 @@ public class SettlementApp {
                 switch (choice) {
                     case 1:
                         System.out.print("Enter Batch ID (e.g., BATCH001): ");
-                        String batchId = scanner.nextLine();
+                        String batchId = scanner.nextLine().trim();
+                        if (batchId.isBlank()) {
+                            throw new IllegalArgumentException("Batch ID cannot be blank.");
+                        }
+                        if (service.isBatchAlreadySubmitted(batchId)) {
+                            throw new IllegalArgumentException("Batch ID already exists in database: " + batchId);
+                        }
                         currentBuilder = SettlementBatch.builder(batchId, LocalDate.now());
                         System.out.println("✅ Batch " + batchId + " initialized.\n");
                         break;
@@ -52,10 +65,19 @@ public class SettlementApp {
                             break;
                         }
                         System.out.print("Enter Txn ID (e.g., TXN1001): ");
-                        String txnId = scanner.nextLine();
+                        String txnId = scanner.nextLine().trim();
+                        if (txnId.isBlank()) {
+                            throw new IllegalArgumentException("Transaction ID cannot be blank.");
+                        }
+                        if (service.isTransactionAlreadyPersisted(txnId)) {
+                            throw new IllegalArgumentException("Transaction ID already exists in database: " + txnId);
+                        }
 
                         Bank senderBank = readBank(scanner, "Enter Sender Bank");
                         Bank receiverBank = readBank(scanner, "Enter Receiver Bank");
+                        if (senderBank == receiverBank) {
+                            throw new IllegalArgumentException("Sender and receiver bank cannot be same.");
+                        }
                         Channel channel = readChannel(scanner);
                         BigDecimal amount = readAmount(scanner);
                         DrCr drCr = readDrCr(scanner);
@@ -79,6 +101,10 @@ public class SettlementApp {
                     case 3:
                         if (currentBuilder == null || currentBuilder.previewRecordCount() == 0) {
                             System.out.println("❌ No pending batch or empty batch to submit.\n");
+                            break;
+                        }
+                        if (!confirm(scanner, "Submit current batch to database")) {
+                            System.out.println("⚠️ Batch submission cancelled.\n");
                             break;
                         }
                         SettlementBatch batchToSave = currentBuilder.build();
@@ -107,6 +133,19 @@ public class SettlementApp {
                         break;
 
                     case 8:
+                        if (currentBuilder == null) {
+                            System.out.println("ℹ️ No active unsaved batch.\n");
+                            break;
+                        }
+                        service.printCurrentBatchPreview(currentBuilder);
+                        break;
+
+                    case 9:
+                        if (currentBuilder != null && currentBuilder.previewRecordCount() > 0
+                                && !confirm(scanner, "You have unsaved transactions. Exit anyway")) {
+                            System.out.println();
+                            break;
+                        }
                         System.out.println("Exiting system. Goodbye!");
                         scanner.close();
                         System.exit(0);
@@ -115,10 +154,31 @@ public class SettlementApp {
                     default:
                         System.out.println("Invalid option. Try again.\n");
                 }
+            } catch (IllegalArgumentException e) {
+                System.out.println("❌ Validation Error: " + e.getMessage() + "\n");
+            } catch (SQLException e) {
+                System.out.println("❌ Database Error: " + e.getMessage());
+                System.out.println("➡️ Please verify DB connection, credentials, and schema setup.\n");
             } catch (Exception e) {
-                System.out.println("❌ Error: " + e.getMessage() + "\n");
+                System.out.println("❌ Unexpected Error: " + e.getMessage());
+                System.out.println("➡️ Please retry and contact support if the issue persists.\n");
             }
         }
+    }
+
+    private static boolean runStartupChecks(SettlementService service) {
+        try {
+            service.validateStartup();
+            System.out.println("✅ Startup check passed: database connectivity and core tables are available.\n");
+            return true;
+        } catch (IllegalStateException e) {
+            System.out.println("❌ Startup Validation Error: " + e.getMessage());
+            System.out.println("➡️ Ensure required tables exist: settlement_batch, transactions.\n");
+        } catch (SQLException e) {
+            System.out.println("❌ Startup Database Error: " + e.getMessage());
+            System.out.println("➡️ Check db.properties URL, credentials, and database availability.\n");
+        }
+        return false;
     }
 
     private static int readMenuChoice(Scanner scanner) {
@@ -135,7 +195,12 @@ public class SettlementApp {
             System.out.print("Enter Amount: ");
             String rawValue = scanner.nextLine().trim();
             try {
-                return new BigDecimal(rawValue);
+                BigDecimal amount = new BigDecimal(rawValue);
+                if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                    System.out.println("❌ Amount must be greater than zero.\n");
+                    continue;
+                }
+                return amount;
             } catch (NumberFormatException ex) {
                 System.out.println("❌ Invalid amount. Please enter a valid numeric amount.\n");
             }
@@ -188,5 +253,11 @@ public class SettlementApp {
                 System.out.println("❌ Invalid status. Allowed values: " + Arrays.toString(Status.values()) + "\n");
             }
         }
+    }
+
+    private static boolean confirm(Scanner scanner, String message) {
+        System.out.print(message + "? (y/n): ");
+        String answer = scanner.nextLine().trim().toLowerCase();
+        return "y".equals(answer) || "yes".equals(answer);
     }
 }
