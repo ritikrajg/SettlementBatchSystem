@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import com.iispl.connectionpool.ConnectionPool;
 import com.iispl.entity.SettlementBatch;
@@ -43,6 +44,18 @@ public class SettlementService {
 
     public boolean isBatchAlreadySubmitted(String batchId) throws SQLException {
         return batchRepo.existsByBatchId(batchId);
+    }
+
+    public String generateUniqueBatchId() throws SQLException {
+        String datePart = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        for (int attempt = 0; attempt < 10; attempt++) {
+            String randomPart = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+            String batchId = "BATCH-" + datePart + "-" + randomPart;
+            if (!isBatchAlreadySubmitted(batchId)) {
+                return batchId;
+            }
+        }
+        throw new IllegalStateException("Unable to generate a unique Batch ID. Please retry.");
     }
 
     public boolean isTransactionAlreadyPersisted(String txnId) throws SQLException {
