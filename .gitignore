@@ -1,0 +1,10 @@
+# Java build outputs
+out/
+
+# Temporary local compile output used in validation
+/tmp/sbs-out/
+
+# IDE metadata
+.idea/
+*.iml
+.vscode/
