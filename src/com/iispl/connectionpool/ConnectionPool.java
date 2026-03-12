@@ -22,8 +22,7 @@ public class ConnectionPool {
     private static final DataSource dataSource;
 
     static {
-        try {
-            InputStream inputStream = new FileInputStream("resources/db.properties");
+        try (InputStream inputStream = new FileInputStream("resources/db.properties")) {
             Properties properties = new Properties();
             properties.load(inputStream);
 
