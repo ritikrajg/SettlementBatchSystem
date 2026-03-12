@@ -1,0 +1,2 @@
+txn_id,sender_bank,receiver_bank,channel,amount,dr_cr
+CSV6001,SBI,HDFC,UPI,100.00,DR

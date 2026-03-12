@@ -1,0 +1,2 @@
+txn_id,sender_bank,receiver_bank,channel,amount,dr_cr,status
+CSV4001,SBI,SBI,UPI,100.00,DR,SUCCESS
