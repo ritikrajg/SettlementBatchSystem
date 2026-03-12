@@ -8,7 +8,7 @@ This project is a console-based Java settlement engine. It captures transactions
 
 It is a simple CLI workflow for settlement operations:
 
-1. Initialize a batch.
+1. Initialize a batch (ID is auto-generated and unique).
 2. Add transactions to the current batch.
 3. Submit the batch to the database.
 4. Generate batch summary and clearing-house style reports from persisted data.
@@ -64,7 +64,7 @@ Key flow:
 - Creates `SettlementService` with repositories.
 - Maintains current in-memory `SettlementBatch.Builder`.
 - Displays menu:
-  1. Initialize batch.
+  1. Initialize batch (auto ID).
   2. Add transaction.
   3. Submit batch.
   4. View batch summary.

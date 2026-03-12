@@ -38,16 +38,9 @@ public class SettlementApp {
             try {
                 switch (choice) {
                     case 1:
-                        System.out.print("Enter Batch ID (e.g., BATCH001): ");
-                        String batchId = scanner.nextLine().trim();
-                        if (batchId.isBlank()) {
-                            throw new IllegalArgumentException("Batch ID cannot be blank.");
-                        }
-                        if (service.isBatchAlreadySubmitted(batchId)) {
-                            throw new IllegalArgumentException("Batch ID already exists in database: " + batchId);
-                        }
+                        String batchId = service.generateUniqueBatchId();
                         currentBuilder = SettlementBatch.builder(batchId, LocalDate.now());
-                        System.out.println("✅ Batch " + batchId + " initialized.\n");
+                        System.out.println("✅ Batch " + batchId + " initialized automatically.\n");
                         break;
 
                     case 2:
