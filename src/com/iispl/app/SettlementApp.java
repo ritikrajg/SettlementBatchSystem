@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
 
 import com.iispl.entity.SettlementBatch;
@@ -63,8 +64,8 @@ public class SettlementApp {
                             throw new IllegalArgumentException("Transaction ID already exists in database: " + txnId);
                         }
 
-                        Bank senderBank = readBank(scanner, "Enter Sender Bank");
-                        Bank receiverBank = readBank(scanner, "Enter Receiver Bank");
+                        Bank senderBank = readBank(scanner, "Select Sender Bank");
+                        Bank receiverBank = readBank(scanner, "Select Receiver Bank");
                         if (senderBank == receiverBank) {
                             throw new IllegalArgumentException("Sender and receiver bank cannot be same.");
                         }
@@ -248,7 +249,7 @@ public class SettlementApp {
                 service.printTransactionsByDate(date);
                 break;
             case 3:
-                service.printTransactionsByBank(readBank(scanner, "Enter Bank"));
+                service.printTransactionsByBank(readBank(scanner, "Select Bank"));
                 break;
             case 4:
                 service.printTransactionsByChannel(readChannel(scanner));
@@ -260,17 +261,17 @@ public class SettlementApp {
                 service.printTransactionsByStatus(readStatus(scanner));
                 break;
             case 7:
-                Bank bankForChannel = readBank(scanner, "Enter Bank");
+                Bank bankForChannel = readBank(scanner, "Select Bank");
                 Channel channel = readChannel(scanner);
                 service.printTransactionsByBankAndChannel(bankForChannel, channel);
                 break;
             case 8:
-                Bank bankForStatus = readBank(scanner, "Enter Bank");
+                Bank bankForStatus = readBank(scanner, "Select Bank");
                 Status status = readStatus(scanner);
                 service.printTransactionsByBankAndStatus(bankForStatus, status);
                 break;
             case 9:
-                Bank bank = readBank(scanner, "Enter Bank");
+                Bank bank = readBank(scanner, "Select Bank");
                 Channel combinedChannel = readChannel(scanner);
                 Status combinedStatus = readStatus(scanner);
                 service.printTransactionsByBankChannelAndStatus(bank, combinedChannel, combinedStatus);
@@ -322,50 +323,42 @@ public class SettlementApp {
     }
 
     private static Bank readBank(Scanner scanner, String prompt) {
-        while (true) {
-            System.out.print(prompt + " (SBI/HDFC/ICICI/AXIS/PNB/BOB): ");
-            String value = scanner.nextLine().trim().toUpperCase();
-            try {
-                return Bank.valueOf(value);
-            } catch (IllegalArgumentException ex) {
-                System.out.println("❌ Invalid bank. Allowed values: " + Arrays.toString(Bank.values()) + "\n");
-            }
-        }
+        return readEnumSelection(scanner, prompt, Bank.class);
     }
 
     private static Channel readChannel(Scanner scanner) {
-        while (true) {
-            System.out.print("Enter Channel (UPI/ATM/POS/NETBANKING): ");
-            String value = scanner.nextLine().trim().toUpperCase();
-            try {
-                return Channel.valueOf(value);
-            } catch (IllegalArgumentException ex) {
-                System.out.println("❌ Invalid channel. Allowed values: " + Arrays.toString(Channel.values()) + "\n");
-            }
-        }
+        return readEnumSelection(scanner, "Select Channel", Channel.class);
     }
 
     private static DrCr readDrCr(Scanner scanner) {
-        while (true) {
-            System.out.print("Enter Entry Type (DR/CR): ");
-            String value = scanner.nextLine().trim().toUpperCase();
-            try {
-                return DrCr.valueOf(value);
-            } catch (IllegalArgumentException ex) {
-                System.out.println("❌ Invalid entry type. Allowed values: " + Arrays.toString(DrCr.values()) + "\n");
-            }
-        }
+        return readEnumSelection(scanner, "Select Entry Type", DrCr.class);
     }
 
     private static Status readStatus(Scanner scanner) {
+        return readEnumSelection(scanner, "Select Status", Status.class);
+    }
+
+    private static <T extends Enum<T>> T readEnumSelection(Scanner scanner, String prompt, Class<T> enumClass) {
+        List<T> options = Arrays.asList(enumClass.getEnumConstants());
+
         while (true) {
-            System.out.print("Enter Status (SUCCESS/FAILED/PENDING): ");
-            String value = scanner.nextLine().trim().toUpperCase();
-            try {
-                return Status.valueOf(value);
-            } catch (IllegalArgumentException ex) {
-                System.out.println("❌ Invalid status. Allowed values: " + Arrays.toString(Status.values()) + "\n");
+            System.out.println(prompt + ":");
+            for (int i = 0; i < options.size(); i++) {
+                System.out.println((i + 1) + ". " + options.get(i));
             }
+            System.out.print("Choose option number: ");
+
+            String rawValue = scanner.nextLine().trim();
+            try {
+                int selectedIndex = Integer.parseInt(rawValue) - 1;
+                if (selectedIndex >= 0 && selectedIndex < options.size()) {
+                    return options.get(selectedIndex);
+                }
+            } catch (NumberFormatException ex) {
+                // keep prompting with a friendly message below
+            }
+
+            System.out.println("❌ Invalid selection. Please enter a number from 1 to " + options.size() + ".\n");
         }
     }
 
