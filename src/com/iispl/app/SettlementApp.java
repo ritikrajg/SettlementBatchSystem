@@ -23,6 +23,12 @@ import com.iispl.repository.SettlementBatchRepository;
 import com.iispl.repository.TransactionRepository;
 import com.iispl.service.SettlementService;
 
+/**
+ * Console entry-point for the settlement system.
+ *
+ * It manages user interaction, validates inputs, and delegates persistence/reporting
+ * operations to {@link com.iispl.service.SettlementService}.
+ */
 public class SettlementApp {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -394,6 +400,8 @@ public class SettlementApp {
             throw new IllegalArgumentException("CSV file is empty.");
         }
 
+        // Keep a fast lookup of in-memory transaction IDs so we can reject duplicates
+        // before the batch is submitted.
         Set<String> existingTxnIds = new HashSet<>();
         for (Transaction transaction : currentBuilder.previewTransactions()) {
             existingTxnIds.add(transaction.getTxnId().toUpperCase());
@@ -406,6 +414,7 @@ public class SettlementApp {
                 continue;
             }
 
+            // Allow files with a header row; skip it when present.
             if (i == 0 && row.toLowerCase().startsWith("txn_id,")) {
                 continue;
             }
@@ -425,6 +434,7 @@ public class SettlementApp {
                 throw new IllegalArgumentException("Duplicate txn id in current batch/CSV at line " + (i + 1)
                         + ": " + txnId);
             }
+            // Also guard against IDs that already exist in persisted transactions.
             if (service.isTransactionAlreadyPersisted(txnId)) {
                 throw new IllegalArgumentException("Transaction ID already exists in database at line " + (i + 1)
                         + ": " + txnId);
@@ -463,6 +473,7 @@ public class SettlementApp {
                 throw new IllegalArgumentException("Amount must be greater than zero at line " + (i + 1));
             }
 
+            // CSV does not carry transaction timestamp; use import time as txn_time.
             Transaction txn = new Transaction(
                     txnId,
                     senderBank,

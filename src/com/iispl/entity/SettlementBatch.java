@@ -7,6 +7,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Immutable settlement batch aggregate containing metadata and transactions.
+ */
 public class SettlementBatch {
 
     private final String batchId;
@@ -35,6 +38,7 @@ public class SettlementBatch {
         return transaction;
     }
 
+    /** Builder used for collecting and validating in-memory batch transactions. */
     public static final class Builder {
         private final String batchId;
         private final LocalDate date;

@@ -22,6 +22,9 @@ import com.iispl.enums.Status;
 import com.iispl.repository.SettlementBatchRepository;
 import com.iispl.repository.TransactionRepository;
 
+/**
+ * Application service that orchestrates repositories and prints business reports.
+ */
 public class SettlementService {
 
     private static final DateTimeFormatter DISPLAY_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -34,6 +37,7 @@ public class SettlementService {
         this.txnRepo = txnRepo;
     }
 
+    /** Validates DB connectivity and required tables before menu startup. */
     public void validateStartup() throws SQLException {
         try (Connection connection = ConnectionPool.getDataSource().getConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
@@ -46,6 +50,7 @@ public class SettlementService {
         return batchRepo.existsByBatchId(batchId);
     }
 
+    /** Generates a collision-resistant batch id and verifies it does not already exist. */
     public String generateUniqueBatchId() throws SQLException {
         String datePart = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         for (int attempt = 0; attempt < 10; attempt++) {
@@ -62,6 +67,7 @@ public class SettlementService {
         return txnRepo.existsByTxnId(txnId);
     }
 
+    /** Persists batch and transactions in a single DB transaction (all-or-nothing). */
     public void processBatch(SettlementBatch batch) throws SQLException {
         try (Connection connection = ConnectionPool.getDataSource().getConnection()) {
             connection.setAutoCommit(false);
@@ -297,6 +303,7 @@ public class SettlementService {
                 txnRepo.findByBankAndChannelAndStatus(bank, channel, status));
     }
 
+    /** Prints transaction rows in a consistent tabular format for all filter views. */
     private void printTransactionList(String title, List<Transaction> transactions) {
         if (transactions.isEmpty()) {
             System.out.println("❌ No transactions found.\n");
