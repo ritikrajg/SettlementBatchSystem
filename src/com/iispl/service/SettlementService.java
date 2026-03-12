@@ -1,12 +1,15 @@
 package com.iispl.service;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
+import com.iispl.connectionpool.ConnectionPool;
 import com.iispl.entity.SettlementBatch;
 import com.iispl.entity.Transaction;
 import com.iispl.enums.Bank;
@@ -26,13 +29,40 @@ public class SettlementService {
         this.txnRepo = txnRepo;
     }
 
+    public void validateStartup() throws SQLException {
+        try (Connection connection = ConnectionPool.getDataSource().getConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            assertTableExists(metaData, "settlement_batch");
+            assertTableExists(metaData, "transactions");
+        }
+    }
+
+    public boolean isBatchAlreadySubmitted(String batchId) throws SQLException {
+        return batchRepo.existsByBatchId(batchId);
+    }
+
+    public boolean isTransactionAlreadyPersisted(String txnId) throws SQLException {
+        return txnRepo.existsByTxnId(txnId);
+    }
+
     public void processBatch(SettlementBatch batch) throws SQLException {
-        batchRepo.save(batch);
-        for (Transaction txn : batch.getTransaction()) {
-            if (txnRepo.existsByTxnId(txn.getTxnId())) {
-                throw new IllegalArgumentException("Duplicate txn id found: " + txn.getTxnId());
+        try (Connection connection = ConnectionPool.getDataSource().getConnection()) {
+            connection.setAutoCommit(false);
+            try {
+                batchRepo.save(connection, batch);
+                for (Transaction txn : batch.getTransaction()) {
+                    if (txnRepo.existsByTxnId(connection, txn.getTxnId())) {
+                        throw new IllegalArgumentException("Duplicate txn id found: " + txn.getTxnId());
+                    }
+                    txnRepo.save(connection, txn, batch.getBatchId());
+                }
+                connection.commit();
+            } catch (Exception ex) {
+                connection.rollback();
+                throw ex;
+            } finally {
+                connection.setAutoCommit(true);
             }
-            txnRepo.save(txn, batch.getBatchId());
         }
     }
 
@@ -40,6 +70,25 @@ public class SettlementService {
         processBatch(batch);
         System.out.println("✅ Batch " + batch.getBatchId() + " submitted with " + batch.getTransaction().size()
                 + " transactions.");
+    }
+
+    public void printCurrentBatchPreview(SettlementBatch.Builder builder) {
+        List<Transaction> transactions = builder.previewTransactions();
+        if (transactions.isEmpty()) {
+            System.out.println("ℹ️ Current batch has no pending transactions.\n");
+            return;
+        }
+
+        System.out.println("\n🧾 Current Unsaved Batch Preview");
+        System.out.printf("%-12s %-6s %-6s %-12s %-12s %-6s %-10s%n",
+                "Txn ID", "From", "To", "Channel", "Amount", "DR/CR", "Status");
+        System.out.println("--------------------------------------------------------------------------");
+        for (Transaction tx : transactions) {
+            System.out.printf("%-12s %-6s %-6s %-12s %-12.2f %-6s %-10s%n",
+                    tx.getTxnId(), tx.getSenderBank(), tx.getReceiverBank(), tx.getChannel(), tx.getAmount(),
+                    tx.getDrCr(), tx.getStatus());
+        }
+        System.out.println();
     }
 
     public void printBatchSummary(String batchId) throws SQLException {
@@ -166,6 +215,14 @@ public class SettlementService {
             System.out.println(transaction);
         }
         System.out.println();
+    }
+
+    private void assertTableExists(DatabaseMetaData metaData, String tableName) throws SQLException {
+        try (java.sql.ResultSet tables = metaData.getTables(null, null, tableName, null)) {
+            if (!tables.next()) {
+                throw new IllegalStateException("Required table missing: " + tableName);
+            }
+        }
     }
 
     private static final class ChannelSettlement {

@@ -69,13 +69,18 @@ Key flow:
   3. Submit batch.
   4. View batch summary.
   5. View clearing house report.
-  6. Exit.
+  6. View bank-wise settlement summary.
+  7. View all transactions.
+  8. View current unsaved batch.
+  9. Exit.
 
 Helper methods:
 
 - `readMenuChoice()` validates numeric menu input.
-- `readAmount()` loops until valid `BigDecimal`.
+- `readAmount()` loops until valid positive `BigDecimal`.
 - `readChannel()`, `readDrCr()`, `readStatus()` validate enum input.
+- Startup checks verify DB connectivity and required tables before menu launch.
+- Confirmation prompts prevent accidental submit/exit with unsaved records.
 
 Behavior note:
 
@@ -88,8 +93,8 @@ Behavior note:
 Main methods:
 
 - `processBatch(batch)`
-  - Saves batch metadata.
-  - Saves all batch transactions.
+  - Saves batch metadata and all batch transactions in a single DB transaction (`commit/rollback`).
+  - Guards against duplicate transaction IDs in persisted records.
 - `processEndOfDayBatch(batch)`
   - Calls `processBatch` and prints success message.
 - `printBatchSummary(batchId)`
@@ -107,7 +112,7 @@ Main methods:
 
 Methods:
 
-- `save(txn, batchId)` → insert into `transactions`.
+- `save(txn, batchId)` and `save(connection, txn, batchId)` → insert into `transactions`.
 - `findByBatchId(batchId)` → fetch transaction rows for a batch.
 - `totalAmountForBatch(batchId)` → sum batch amounts (`COALESCE`).
 
@@ -117,7 +122,7 @@ Methods:
 
 Methods:
 
-- `save(batch)` → insert batch ID + date.
+- `save(batch)` and `save(connection, batch)` → insert batch ID + date.
 - `findBatchDate(batchId)` → fetch batch date by ID.
 
 ### 5) `ConnectionPool.java` (Datasource bootstrap)
@@ -162,7 +167,7 @@ Expected tables:
 - `settlement_batch(batch_id, batch_date)`
 - `transactions(txn_id, channel, amount, txn_time, dr_cr, status, batch_id)`
 
-> Create these tables before running (schema file is not present in this repo).
+SQL script is available at `sql/schema.sql`. Run it once before starting the app.
 
 ---
 
@@ -198,12 +203,24 @@ From menu options:
 
 ---
 
+## Improvement Roadmap
+
+For a prioritized, user-focused enhancement plan, see `docs/USER_SATISFACTION_IMPROVEMENTS.md`.
+
+---
+
 ## Run Commands
 
 Compile:
 
 ```bash
 javac -d out $(find src -name '*.java')
+```
+
+Initialize schema:
+
+```bash
+psql -U <username> -d <database_name> -f sql/schema.sql
 ```
 
 Run:
