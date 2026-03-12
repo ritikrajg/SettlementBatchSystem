@@ -318,6 +318,100 @@ public class SettlementService {
         System.out.println(title);
         System.out.println("Total Records: " + totalRecords);
         System.out.println(divider);
+    public void printAllBatches() throws SQLException {
+        Map<String, LocalDate> batches = batchRepo.findAllBatchDates();
+        if (batches.isEmpty()) {
+            System.out.println("❌ No batches available in database.\n");
+            return;
+        }
+
+        System.out.println("\nALL BATCHES");
+        System.out.printf("%-16s %-12s%n", "Batch ID", "Batch Date");
+        System.out.println("------------------------------");
+        for (Map.Entry<String, LocalDate> batch : batches.entrySet()) {
+            System.out.printf("%-16s %-12s%n", batch.getKey(), batch.getValue());
+        }
+        System.out.println();
+    }
+
+    public void printBatchesByDate(LocalDate batchDate) throws SQLException {
+        Map<String, LocalDate> batches = batchRepo.findBatchDatesByDate(batchDate);
+        if (batches.isEmpty()) {
+            System.out.println("❌ No batches found for date: " + batchDate + "\n");
+            return;
+        }
+
+        System.out.println("\nBATCHES ON DATE: " + batchDate);
+        System.out.printf("%-16s %-12s%n", "Batch ID", "Batch Date");
+        System.out.println("------------------------------");
+        for (Map.Entry<String, LocalDate> batch : batches.entrySet()) {
+            System.out.printf("%-16s %-12s%n", batch.getKey(), batch.getValue());
+        }
+        System.out.println();
+    }
+
+    public void printTransactionsByTxnId(String txnId) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR ID: " + txnId, txnRepo.findByTxnId(txnId));
+    }
+
+    public void printTransactionsByDate(LocalDate txnDate) throws SQLException {
+        printTransactionList("TRANSACTIONS ON DATE: " + txnDate, txnRepo.findByTxnDate(txnDate));
+    }
+
+    public void printTransactionsByBank(Bank bank) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR BANK: " + bank, txnRepo.findByBank(bank));
+    }
+
+    public void printTransactionsByChannel(Channel channel) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR CHANNEL: " + channel, txnRepo.findByChannel(channel));
+    }
+
+    public void printTransactionsByDrCr(DrCr drCr) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR DR/CR: " + drCr, txnRepo.findByDrCr(drCr));
+    }
+
+    public void printTransactionsByStatus(Status status) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR STATUS: " + status, txnRepo.findByStatus(status));
+    }
+
+    public void printTransactionsByBankAndChannel(Bank bank, Channel channel) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR BANK " + bank + " AND CHANNEL " + channel,
+                txnRepo.findByBankAndChannel(bank, channel));
+    }
+
+    public void printTransactionsByBankAndStatus(Bank bank, Status status) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR BANK " + bank + " AND STATUS " + status,
+                txnRepo.findByBankAndStatus(bank, status));
+    }
+
+    public void printTransactionsByBankChannelAndStatus(Bank bank, Channel channel, Status status) throws SQLException {
+        printTransactionList("TRANSACTIONS FOR BANK " + bank + ", CHANNEL " + channel + ", STATUS " + status,
+                txnRepo.findByBankAndChannelAndStatus(bank, channel, status));
+    }
+
+    private void printTransactionList(String title, List<Transaction> transactions) {
+        if (transactions.isEmpty()) {
+            System.out.println("❌ No transactions found.\n");
+            return;
+        }
+
+        System.out.println("\n" + title);
+        System.out.printf("%-12s %-6s %-6s %-10s %-10s %-6s %-10s %-20s%n",
+                "Txn ID", "From", "To", "Channel", "Amount", "DR/CR", "Status", "Txn Time");
+        System.out.println("----------------------------------------------------------------------------------------");
+
+        for (Transaction transaction : transactions) {
+            System.out.printf("%-12s %-6s %-6s %-10s %-10.2f %-6s %-10s %-20s%n",
+                    transaction.getTxnId(),
+                    transaction.getSenderBank(),
+                    transaction.getReceiverBank(),
+                    transaction.getChannel(),
+                    transaction.getAmount(),
+                    transaction.getDrCr(),
+                    transaction.getStatus(),
+                    transaction.getTxnTime());
+        }
+        System.out.println();
     }
 
     private void assertTableExists(DatabaseMetaData metaData, String tableName) throws SQLException {
